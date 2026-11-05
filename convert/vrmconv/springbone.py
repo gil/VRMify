@@ -459,7 +459,10 @@ def _build_springs(model, parents, alias, human_b, glob, bpos, scale, xf,
         # 弹簧追不上就在末端来回颤（实测是全身颤动最大的部位），不如跟着骨骼刚性移动
         length = math.dist(pos[last], tpos) + sum(
             math.dist(pos[a], pos[b]) for a, b in zip(chain, chain[1:]))
-        if length < (max(min_chain_len, limb_min_len) if limb else min_chain_len):
+        min_len = rbs[dyn[chain[0]]].get("min_len")
+        if min_len is None:
+            min_len = max(min_chain_len, limb_min_len) if limb else min_chain_len
+        if length < min_len:
             n_tiny[0] += 1
             continue
         if real:
@@ -483,6 +486,9 @@ def _build_springs(model, parents, alias, human_b, glob, bpos, scale, xf,
         js = []
         for i, b in enumerate(kept):
             jt = seg_params(chain[idx[i]:idx[i + 1]], math.dist(pts[i], pts[i + 1]), lower, arm)
+            override = rbs[dyn[b]].get("spring") or {}
+            for key, val in override.items():
+                jt[key] = round(val * stiffness_mul, 4) if key == "stiffness" else val
             jt["node"] = bone_node(b)
             js.append(jt)
         tj = dict(js[-1])

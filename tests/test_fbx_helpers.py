@@ -384,3 +384,31 @@ class UpAxisTest(unittest.TestCase):
 
     def test_unknown_axis_is_identity(self):
         self.assertEqual(fbx2pmx.up_axis_matrix(7, 1), fbx2pmx.m_ident())
+
+
+class BreastPhysicsTest(unittest.TestCase):
+    @staticmethod
+    def _model(names):
+        return {"bones": [{"name": n, "pos": (0.0, 1.0 + i, 0.0)} for i, n in enumerate(names)],
+                "vertices": [{"pos": (0.0, 0.0, 0.0)}, {"pos": (0.0, 20.0, 0.0)}], "rigid_bodies": []}
+
+    def test_adds_soft_chains_to_breast_bones_only(self):
+        from vrmconv.autophys import add_breast_physics
+        model = self._model(["spine", "left breast", "left nipple", "Mune_R", "J_Mune_root_00", "Chest"])
+        found = add_breast_physics(model, [-1] * 6, {}, {"spine": 0, "chest": 5})
+        self.assertEqual(found, 2)
+        added = {rb["bone"]: rb for rb in model["rigid_bodies"]}
+        self.assertEqual(set(added), {1, 3})
+        for rb in added.values():
+            self.assertEqual((rb["mode"], rb["mask"]), (1, 0))
+            self.assertLess(rb["spring"]["stiffness"], 2.0)
+            self.assertEqual(rb["spring"]["gravityPower"], 0.0)
+
+    def test_existing_physics_keeps_its_parameters(self):
+        from vrmconv.autophys import add_breast_physics
+        model = self._model(["spine", "Mune_L"])
+        model["rigid_bodies"] = [{"bone": 1, "mode": 1, "name": "own"}]
+        add_breast_physics(model, [-1, 0], {}, {"spine": 0})
+        self.assertEqual(len(model["rigid_bodies"]), 1)
+        self.assertNotIn("spring", model["rigid_bodies"][0])
+        self.assertIn("min_len", model["rigid_bodies"][0])

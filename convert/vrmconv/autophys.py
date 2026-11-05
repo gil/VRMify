@@ -22,6 +22,12 @@ _NEVER = re.compile(
     r"mune|bust|breast|chichi|oppai|胸|pai_|^pai|twist|twst|捩|roll|(?:^|_)ik|ik(?:$|_)|helper|ctrl|"
     r"control|adj|root|dummy|ダミー|先$|tip$|nub$|ndl|offset|target|master|aim|socket|attach|"
     r"weapon|gun|holster|pocket|pouch|buckle|shell|prop|point", re.I)
+_BREAST = re.compile(r"breast|bust|boob|mune|oppai|chichi|胸|乳|(?:^|_)pai(?:_|$)", re.I)
+_NOT_BREAST = re.compile(
+    r"nipple|nip$|乳首|乳頭|nub|tip$|先$|twist|twst|捩|roll|(?:^|_)ik|ik(?:$|_)|helper|ctrl|control|adj|root|"
+    r"dummy|ダミー|offset|target", re.I)
+BREAST_SPRING = {"stiffness": 1.5, "dragForce": 0.4, "gravityPower": 0.0}
+BREAST_MIN_LEN = 0.015
 _FACE = re.compile(
     r"eye|目|jaw|顎|tongue|舌|teeth|tooth|歯|mouth|口|brow|眉|lid|瞼|cheek|頬|nose|鼻|face|顔|"
     r"lip|唇|chin|smile|crease|corner|nostril|temple|forehead|lash|pupil|iris|dimple|"
@@ -87,6 +93,32 @@ def _leaf_tails(model, dyn, children):
 def needed(model):
     """模型里没有任何会动的刚体（mode 1/2）时才自动补。"""
     return not any(rb.get("mode") in (1, 2) for rb in model.get("rigid_bodies") or [])
+
+
+def add_breast_physics(model, parents, alias, human_b, H=None, log=None):
+    """胸部骨（breast / mune / 胸 …，乳头骨除外）加上摆动刚体：柔软、不碰撞、不受重力，
+    短链也不丢（springbone 看刚体上的 min_len / spring）。模型自己已经给这根骨配了刚体的，
+    只放宽它的短链下限、不改它的参数。返回胸部骨数。"""
+    bones = model["bones"]
+    human = set(human_b.values())
+    rbs = model.setdefault("rigid_bodies", [])
+    if H is None:
+        ys = [v["pos"][1] for v in model.get("vertices") or []] or [b["pos"][1] for b in bones] or [0.0]
+        H = max(1e-6, max(ys) - min(ys))
+    has_rb = {rb["bone"]: rb for rb in rbs if rb.get("mode") in (1, 2)}
+    found = [b for b in range(len(bones))
+             if b not in human and b not in alias and _BREAST.search(bones[b]["name"] or "")
+             and not _NOT_BREAST.search(bones[b]["name"] or "")]
+    for b in found:
+        if b in has_rb:
+            has_rb[b]["min_len"] = BREAST_MIN_LEN
+            continue
+        rb = _rb("auto_" + (bones[b]["name"] or str(b)), b, bones[b]["pos"], 1, H * 0.012)
+        rb.update(mask=0, min_len=BREAST_MIN_LEN, spring=dict(BREAST_SPRING))
+        rbs.append(rb)
+    if log and found:
+        log("物理：已为 %d 根胸部骨添加摆动（%s）" % (len(found), "、".join(bones[b]["name"] for b in found)))
+    return len(found)
 
 
 def synthesize(model, parents, alias, human_b, log=None):

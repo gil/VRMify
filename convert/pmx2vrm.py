@@ -45,7 +45,7 @@ def convert(pmx_path, vrm_path, spec="1.0", scale_mode="auto",
             spring=True, spring_skirt=True, spring_stiffness=1.0,
             spring_gravity=0.0, spring_gravity_skirt=0.1, spring_center=True,
             spring_opts=None, tex_max=0, tex_jpeg=False, auto_spring=True, gaze=True,
-            combo_expr=True, extra_expr=True, collapse_bones=True, model=None, raw_weights=None, tex_alpha=None,
+            breast_physics=False, combo_expr=True, extra_expr=True, collapse_bones=True, model=None, raw_weights=None, tex_alpha=None,
             threads=4):
     """PMX → VRM，返回统计 dict。log(msg, tag=None) 用于输出进度。
 
@@ -53,6 +53,7 @@ def convert(pmx_path, vrm_path, spec="1.0", scale_mode="auto",
     mesh + materials（网格、MToon）→ expressions（表情）→ vrm_ext（VRM 扩展）。
 
     auto_spring：模型完全没有物理刚体时，按骨骼名 / 结构自动补（vrmconv/autophys）。
+    breast_physics：给胸部骨加柔软的摆动（见 vrmconv/autophys.add_breast_physics），默认关。
     tex_max / tex_jpeg：贴图最大边长（0 = 原样）/ 不透明贴图改存 JPEG（需要 Pillow，见 vrmconv/textures）。
     gaze：有左右眼骨时补 lookUp / lookDown / lookLeft / lookRight 表情（转眼骨烘焙成顶点偏移，
         见 vrmconv/morphbake；模型自己有对应表情时不补）。
@@ -185,6 +186,8 @@ def convert(pmx_path, vrm_path, spec="1.0", scale_mode="auto",
     spring_ext = None
     if spring and auto_spring and autophys.needed(model):
         autophys.synthesize(model, bs.parents, bs.alias, bs.human_b, _log)
+    if spring and breast_physics:
+        autophys.add_breast_physics(model, bs.parents, bs.alias, bs.human_b, log=_log)
     # 按比例跟随的付与骨拆权重：放在自动补物理之后，补出来的摆动骨也算带物理、不拆
     vweights = skeleton.split_partial(bones, bs, vweights, model.get("rigid_bodies"), _log)
     checks.report(bones, bs, raw_weights, vweights, bpos, vpos, scale, _log)
@@ -432,6 +435,8 @@ def main(argv=None):
                          "斜着散开的长发加重力会被拉垂）")
     ap.add_argument("--spring-gravity-skirt", type=float, default=0.1,
                     help="下半身（裙摆）SpringBone 重力（默认 0.1，抬腿时裙片落回腿上）")
+    ap.add_argument("--breast-physics", action="store_true",
+                    help="add soft SpringBone chains to breast bones")
     ap.add_argument("--no-auto-spring", action="store_true",
                     help="模型没有物理刚体时不自动补（默认按骨骼名给头发、裙摆、袖子等加 SpringBone）")
     ap.add_argument("--no-combo-expr", action="store_true",
@@ -475,7 +480,7 @@ def main(argv=None):
                  spring_stiffness=a.spring_stiffness,
                  spring_gravity=a.spring_gravity,
                  spring_gravity_skirt=a.spring_gravity_skirt,
-                 spring_center=not a.no_spring_center, auto_spring=not a.no_auto_spring,
+                 spring_center=not a.no_spring_center, auto_spring=not a.no_auto_spring, breast_physics=a.breast_physics,
                  sparse_morphs=not a.dense_morphs,
                  tex_max=a.tex_max, tex_jpeg=a.tex_jpeg, gaze=not a.no_gaze, combo_expr=not a.no_combo_expr, extra_expr=not a.no_extra_expr,
                  collapse_bones=not a.keep_control_bones,

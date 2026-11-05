@@ -29,6 +29,7 @@ python tools/qa/check_vrm.py "model.vrm"
 | `--spring-stiffness k` | SpringBone 硬度整体倍率，默认 1.0 |
 | `--spring-gravity g` / `--spring-gravity-skirt g` | 头发等 / 裙摆的重力，默认 0 / 0.1 |
 | `--no-auto-spring` | 模型没有物理刚体时不自动补 |
+| `--breast-physics` | 给胸部骨（breast / mune / 胸，乳头骨除外）加柔软的摆动：不碰撞、无重力、短链也保留。默认关 |
 | `--no-spring-center` | 不以模型根节点为 SpringBone center |
 | `--no-combo-expr` | 情绪预设不组合眉 / 眼 / 嘴，每个预设只对应一个表情 |
 | `--no-gaze` | 不补视线表情 |

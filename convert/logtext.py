@@ -196,6 +196,7 @@ TEMPLATES = {
     "物理：模型不含物理刚体，已按骨骼名和骨架结构自动添加 %d 根摆动骨（头发、裙摆、袖子、飘带等）和 %d 个身体碰撞体":
         "Physics: the model has no rigid bodies, so {0} swaying bones (hair, skirts, sleeves, ribbons …) and "
         "{1} body colliders were added from the bone names and the skeleton",
+    "物理：已为 %d 根胸部骨添加摆动（%s）": "Physics: added a soft bounce to {0} breast bones ({1})",
     "SpringBone：%d 条链（裙摆类 %d、头发等 %d）· 碰撞体 %d · 碰撞组 %d":
         "SpringBone: {0} chains ({1} skirt-like, {2} hair and others) · {3} colliders · {4} collider groups",
     "SpringBone：MMD 物理骨 %d 根 → SpringBone 关节 %d 个（头发等每节至少 %.0f cm、裙摆至少 %.0f cm，中间的骨骼刚性跟随）":

@@ -163,6 +163,18 @@ class ExpressionNameTest(unittest.TestCase):
         self.assertFalse(_covers(brow, mouth))
         self.assertTrue(_covers(brow, dict(brow)))
 
+    def test_eyelid_pair_blinks_by_direction_not_by_name(self):
+        from vrmconv.expressions import eyelid_blink
+        noise = {k: (0.0, 1e-5, 0.0) for k in range(100)}
+        down = {**noise, **{k: (0.0, -0.5, 0.0) for k in range(10)}}
+        up = {**noise, **{k: (0.0, 0.5, 0.0) for k in range(10, 20)}}
+        self.assertEqual(eyelid_blink({"Upper eyelids open": down, "Lower eyelids open": up,
+                                       "Upper eyelids raise top": down, "Lower eyelid lower bottom": up}),
+                         ("Upper eyelids open", "Lower eyelids open"))
+        self.assertIsNone(eyelid_blink({"Upper eyelids open": up, "Lower eyelids open": down}))
+        self.assertIsNone(eyelid_blink({"Upper eyelids open": down}))
+        self.assertIsNone(eyelid_blink({"Upper eyelid L": down, "Lower eyelid L": up}))
+
     def test_upset_is_sad_when_nothing_better(self):
         from vrmconv.expressions import Lookup, _en_part
         self.assertEqual(_en_part(Lookup(["Eyebrows upset"]), "sad", 1), "Eyebrows upset")

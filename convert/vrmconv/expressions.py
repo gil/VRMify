@@ -211,6 +211,37 @@ def _covers_any(deltas, a, b):
     return _covers(da, db) or _covers(db, da)
 
 
+_LID_WORDS = {"eyelid", "eyelids", "lid", "lids"}
+_LID_STATE = {"open", "close", "closed", "blink"}
+
+
+def _lid_closes(deltas, which):
+    """上眼睑的顶点平均往下、下眼睑平均往上（偏移够明显）才是闭眼。
+    名字不可靠：有的模型把闭眼叫 "Upper eyelids open"。"""
+    sig = _significant(deltas)
+    if not sig:
+        return False
+    dys = [d[1] for d in sig.values()]
+    mean = sum(dys) / len(dys)
+    top = max(abs(y) for y in dys)
+    return abs(mean) >= 0.15 * top and (mean < 0) == (which == "upper")
+
+
+def eyelid_blink(deltas):
+    """名字里只有「上 / 下眼睑」（可加 open / close / blink）的两个表情，且动起来是闭眼 →
+    (上眼睑表情, 下眼睑表情)；找不全返回 None。带左右的不算。"""
+    found = {}
+    for name, d in deltas.items():
+        ws = set(_en_words(name))
+        pos = ws & {"upper", "lower"}
+        if len(pos) != 1 or not ws & _LID_WORDS or ws & _EN_SIDE or ws - _LID_WORDS - _LID_STATE - pos:
+            continue
+        which = next(iter(pos))
+        if which not in found and _lid_closes(d, which):
+            found[which] = name
+    return (found["upper"], found["lower"]) if len(found) == 2 else None
+
+
 def combo_recipes(deltas, panel, lookup=None):
     """→ {预设（1.0 名）: [(表情名, 权重, 部位 1 眉 / 2 目 / 3 口)]}（ARKit 左右一对时同一部位有两项）。
 
@@ -791,6 +822,9 @@ def build_expressions(flat, prims, mats, mat_gidx, gb, xf, vmat, is1, sparse_mor
     lr = [by_side.get("blinkLeft" if is1 else "blink_l"), by_side.get("blinkRight" if is1 else "blink_r")]
     if not have("blink") and all(n in slot_of for n in lr if n) and all(lr):
         add_multi("blink", [(lr[0], 1.0), (lr[1], 1.0)], "+".join(lr))
+    lids = None if have("blink") else eyelid_blink(delta_of)
+    if lids and all(n in slot_of for n in lids):
+        add_multi("blink", [(n, 1.0) for n in lids], "+".join(lids))
     report(expr_preset, blend_groups, is1, log, sources0)
     return {"target_names": target_names, "preset": expr_preset, "custom": expr_custom,
             "blend_groups": blend_groups}

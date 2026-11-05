@@ -274,6 +274,24 @@ def m_translation(m):
     return (m[3], m[7], m[11])
 
 
+_UP_TO_Y = {
+    (0, 1): (0, -1, 0, 1, 0, 0, 0, 0, 1),
+    (0, -1): (0, 1, 0, -1, 0, 0, 0, 0, 1),
+    (1, 1): (1, 0, 0, 0, 1, 0, 0, 0, 1),
+    (1, -1): (-1, 0, 0, 0, -1, 0, 0, 0, 1),
+    (2, 1): (1, 0, 0, 0, 0, 1, 0, -1, 0),
+    (2, -1): (1, 0, 0, 0, 0, -1, 0, 1, 0),
+}
+
+
+def up_axis_matrix(axis, sign):
+    """把 FBX GlobalSettings 的 UpAxis（0 X / 1 Y / 2 Z）和 UpAxisSign 转成「Y 朝上」的旋转。"""
+    r = _UP_TO_Y.get((axis, 1 if sign >= 0 else -1))
+    if r is None:
+        return m_ident()
+    return [r[0], r[1], r[2], 0, r[3], r[4], r[5], 0, r[6], r[7], r[8], 0, 0, 0, 0, 1]
+
+
 # FBX 的 RotationOrder（EFbxRotationOrder）：字母是「先转哪个轴」，矩阵按相反顺序相乘。
 # 0 XYZ（默认）→ Rz·Ry·Rx；6 是 SphericXYZ，按 XYZ 处理。
 _ROT_ORDER = {0: "zyx", 1: "yzx", 2: "xzy", 3: "zxy", 4: "yxz", 5: "xyz", 6: "zyx"}
@@ -401,10 +419,21 @@ class Scene:
                 if len(c.props) >= 4 and c.props[0] == "OP":
                     self.conn_prop[(c.props[1], c.props[2])] = str(c.props[3])
 
+        self.up_matrix = self._read_up_matrix(root)
         self._build_models()
         self._resolve_links()
         self._build_textures()
         self._build_morphs()
+
+    @staticmethod
+    def _read_up_matrix(root):
+        settings = root.get("GlobalSettings")
+        p70 = settings.get("Properties70") if settings else None
+        found = {}
+        for pr in (p70.children if p70 else []):
+            if len(pr.props) >= 5 and pr.props[0] in ("UpAxis", "UpAxisSign"):
+                found[pr.props[0]] = int(pr.props[4])
+        return up_axis_matrix(found.get("UpAxis", 1), found.get("UpAxisSign", 1))
 
     # -- helpers
     def _props70(self, node):
@@ -492,7 +521,7 @@ class Scene:
                     p.children.append(m)
         for m in self.models.values():
             if m.parent is None:
-                self._calc_world(m, m_ident())
+                self._calc_world(m, self.up_matrix)
 
     def _calc_world(self, m, parent_world):
         m.world = m_mul(parent_world, m.local)

@@ -278,3 +278,24 @@ class AlternateMeshTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UpAxisTest(unittest.TestCase):
+    def test_every_up_axis_maps_up_to_plus_y(self):
+        ups = {(0, 1): (1, 0, 0), (0, -1): (-1, 0, 0), (1, 1): (0, 1, 0),
+               (1, -1): (0, -1, 0), (2, 1): (0, 0, 1), (2, -1): (0, 0, -1)}
+        for key, up in ups.items():
+            got = fbx2pmx.m_dir(fbx2pmx.up_axis_matrix(*key), up)
+            for a, b in zip(got, (0, 1, 0)):
+                self.assertAlmostEqual(a, b, msg=str(key))
+
+    def test_z_up_keeps_front_and_handedness(self):
+        m = fbx2pmx.up_axis_matrix(2, 1)
+        front_minus_y = fbx2pmx.m_dir(m, (0, -1, 0))
+        self.assertEqual(tuple(round(v) for v in front_minus_y), (0, 0, 1))
+        det = (m[0] * (m[5] * m[10] - m[6] * m[9]) - m[1] * (m[4] * m[10] - m[6] * m[8])
+               + m[2] * (m[4] * m[9] - m[5] * m[8]))
+        self.assertAlmostEqual(det, 1.0)
+
+    def test_unknown_axis_is_identity(self):
+        self.assertEqual(fbx2pmx.up_axis_matrix(7, 1), fbx2pmx.m_ident())

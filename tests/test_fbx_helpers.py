@@ -140,6 +140,33 @@ class ExpressionNameTest(unittest.TestCase):
                                       ("mouthFrownLeft", 0.4, 3), ("mouthFrownRight", 0.4, 3)])
         self.assertEqual([n for n, _, _ in r["sad"]], ["browInnerUp", "mouthFrownLeft", "mouthFrownRight"])
 
+    def test_standalone_frown_and_typos(self):
+        from vrmconv.expressions import Lookup, _en_part, combo_recipes
+        names = ["Eyebrows angry", "Eyebrows upset", "eyebrows sad", "Eyebrows suprised", "Frown", "frown open",
+                 "Sad extreame", "Smile"]
+        lk = Lookup(names)
+        self.assertEqual(_en_part(lk, "angry", 1), "Eyebrows angry")
+        self.assertEqual(_en_part(lk, "angry", 3), "Frown")
+        self.assertEqual(_en_part(lk, "sad", 1), "eyebrows sad")
+        self.assertEqual(_en_part(lk, "sad", 3), "Frown")
+        self.assertEqual(_en_part(lk, "surprised", 1), "Eyebrows suprised")
+        deltas = {n: {k: (0.0, 0.1, 0.0)} for k, n in enumerate(names)}
+        r = combo_recipes(deltas, {})
+        self.assertEqual([(n, w) for n, w, _ in r["angry"]], [("Eyebrows angry", 0.5), ("Frown", 0.4)])
+        self.assertEqual([n for n, _, _ in r["sad"]], ["eyebrows sad", "Frown"])
+
+    def test_noise_offsets_do_not_count_as_overlap(self):
+        from vrmconv.expressions import _covers
+        noise = {k: (0.0, 1e-5, 0.0) for k in range(100)}
+        brow = dict(noise, **{k: (0.0, 0.1, 0.0) for k in range(0, 5)})
+        mouth = dict(noise, **{k: (0.0, 0.1, 0.0) for k in range(50, 55)})
+        self.assertFalse(_covers(brow, mouth))
+        self.assertTrue(_covers(brow, dict(brow)))
+
+    def test_upset_is_sad_when_nothing_better(self):
+        from vrmconv.expressions import Lookup, _en_part
+        self.assertEqual(_en_part(Lookup(["Eyebrows upset"]), "sad", 1), "Eyebrows upset")
+
     def test_not_presets(self):
         for name in ("MTH_SMILE1", "Fcl_BRW_Angry", "Key 1", "eye_a", "Basis", "EYE_SMILE1"):
             self.assertIsNone(_preset_en(name, True), name)

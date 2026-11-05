@@ -105,9 +105,18 @@ PRESETS_0 = {"neutral", "a", "i", "u", "e", "o", "blink", "joy", "angry", "sorro
              "lookup", "lookdown", "lookleft", "lookright", "blink_l", "blink_r"}
 
 
+def _significant(deltas, frac=0.1):
+    """去掉幅度不到最大值 frac 的顶点。有的 FBX 的 BlendShape 把整个网格的顶点都存了一遍，
+    绝大多数只是接近 0 的噪声，不去掉的话任何两个表情都会被当成动同一批顶点。"""
+    mags = {v: abs(d[0]) + abs(d[1]) + abs(d[2]) for v, d in deltas.items()}
+    top = max(mags.values(), default=0.0)
+    return {v: deltas[v] for v, m in mags.items() if m >= frac * top}
+
+
 def _covers(big, small):
     """big 的偏移已经包含了 small（八成以上顶点相同、幅度一半以上）：两个一起用就动两遍。
     比如有的模型「ｷﾘｯ」「垂れ目」里自带了「怒り」「困る」的眉毛。"""
+    big, small = _significant(big), _significant(small)
     shared = [v for v in small if v in big]
     if not small or len(shared) < 0.8 * len(small):
         return False
@@ -156,12 +165,12 @@ class Lookup:
 
 
 _EN_PART_WORD = {"brow": 1, "brw": 1, "eyebrow": 1, "eyebrows": 1,
-                 "eye": 2, "eyes": 2, "mouth": 3, "mth": 3, "lip": 3, "lips": 3}
+                 "eye": 2, "eyes": 2, "mouth": 3, "mth": 3, "lip": 3, "lips": 3, "frown": 3}
 # 每种情绪的英文词，按优先顺序（嘴：smile 是抿嘴笑，laugh 是张嘴大笑，先用 smile）
-_EN_FEEL_WORDS = {"happy": ["joy", "happy", "smile", "laugh"], "angry": ["angry", "anger", "mad"],
-                  "sad": ["sorrow", "sad", "trouble", "worried", "worry"],
+_EN_FEEL_WORDS = {"happy": ["joy", "happy", "smile", "laugh"], "angry": ["angry", "anger", "mad", "frown"],
+                  "sad": ["sorrow", "sad", "upset", "trouble", "worried", "worry", "frown"],
                   "relaxed": ["fun", "relaxed", "relax", "gentle"],
-                  "surprised": ["surprised", "surprise", "shock", "wide"]}
+                  "surprised": ["surprised", "surprise", "suprised", "suprise", "shock", "wide"]}
 _EN_SIDE = {"l", "r", "left", "right"}
 
 
@@ -277,7 +286,7 @@ _HL_HI = re.compile(r"(?:^|[^a-z])hi\d*(?:[^a-z]|$)", re.I)       # 「hi」「h
 _HL_EYE = re.compile(r"目|瞳|眼|eye", re.I)
 _HL_NOT = re.compile(r"髪|髮|发|hair", re.I)                         # 头发高光不算
 # 吐舌：按顺序取模型里第一个有的（てへぺろ 还带着眨一只眼，放最后）
-TONGUE = ["舌出し", "舌だし", "ぺろっ", "ぺろり", "べー", "吐舌", "吐舌头", "tongueOut", "tongue_out", "てへぺろ"]
+TONGUE = ["舌出し", "舌だし", "ぺろっ", "ぺろり", "べー", "吐舌", "吐舌头", "tongueOut", "tongue_out", "stick out tongue", "てへぺろ"]
 
 
 def _highlight_materials(model):

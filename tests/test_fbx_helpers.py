@@ -158,8 +158,8 @@ class ExpressionNameTest(unittest.TestCase):
     def test_noise_offsets_do_not_count_as_overlap(self):
         from vrmconv.expressions import _covers
         noise = {k: (0.0, 1e-5, 0.0) for k in range(100)}
-        brow = dict(noise, **{k: (0.0, 0.1, 0.0) for k in range(0, 5)})
-        mouth = dict(noise, **{k: (0.0, 0.1, 0.0) for k in range(50, 55)})
+        brow = {**noise, **{k: (0.0, 0.1, 0.0) for k in range(0, 5)}}
+        mouth = {**noise, **{k: (0.0, 0.1, 0.0) for k in range(50, 55)}}
         self.assertFalse(_covers(brow, mouth))
         self.assertTrue(_covers(brow, dict(brow)))
 

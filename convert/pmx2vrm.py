@@ -140,6 +140,8 @@ def convert(pmx_path, vrm_path, spec="1.0", scale_mode="auto",
          % (len(verts), len(faces) // 3, len(bones), len(materials),
             len(model["morphs"])))
 
+    expressions.open_closed_eyelids(model, _log)
+
     # ---- 骨骼预处理（都在 PMX 坐标里做，最后统一过 xf）：付与骨合并、humanoid、T-pose
     # 骨骼表情烘焙用不带别名的权重，网格用带别名的：先算前者，后者只重算挂在别名骨上的顶点
     if raw_weights is None:

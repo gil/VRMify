@@ -163,17 +163,42 @@ class ExpressionNameTest(unittest.TestCase):
         self.assertFalse(_covers(brow, mouth))
         self.assertTrue(_covers(brow, dict(brow)))
 
-    def test_eyelid_pair_blinks_by_direction_not_by_name(self):
+    def test_eyelid_pair_blink_needs_close_names(self):
         from vrmconv.expressions import eyelid_blink
-        noise = {k: (0.0, 1e-5, 0.0) for k in range(100)}
-        down = {**noise, **{k: (0.0, -0.5, 0.0) for k in range(10)}}
-        up = {**noise, **{k: (0.0, 0.5, 0.0) for k in range(10, 20)}}
-        self.assertEqual(eyelid_blink({"Upper eyelids open": down, "Lower eyelids open": up,
-                                       "Upper eyelids raise top": down, "Lower eyelid lower bottom": up}),
-                         ("Upper eyelids open", "Lower eyelids open"))
-        self.assertIsNone(eyelid_blink({"Upper eyelids open": up, "Lower eyelids open": down}))
-        self.assertIsNone(eyelid_blink({"Upper eyelids open": down}))
-        self.assertIsNone(eyelid_blink({"Upper eyelid L": down, "Lower eyelid L": up}))
+        d = {0: (0.0, 0.1, 0.0)}
+        self.assertEqual(eyelid_blink({"Upper eyelids close": d, "Lower eyelids close": d,
+                                       "Upper eyelids raise top": d}),
+                         ("Upper eyelids close", "Lower eyelids close"))
+        self.assertIsNone(eyelid_blink({"Upper eyelids open": d, "Lower eyelids open": d}))
+        self.assertIsNone(eyelid_blink({"Upper eyelids close": d}))
+        self.assertIsNone(eyelid_blink({"Upper eyelid close L": d, "Lower eyelid close L": d}))
+
+    def test_closed_eyelids_are_opened_in_the_base_shape(self):
+        from vrmconv.expressions import eyelid_blink, open_closed_eyelids
+        model = {"vertices": [{"pos": (0.0, 1.0, 0.0)}, {"pos": (0.0, -1.0, 0.0)}, {"pos": (5.0, 5.0, 5.0)}],
+                 "morphs": [{"name": "Upper eyelids open", "name_en": "Upper eyelids open", "kind": 1,
+                             "offsets": [(0, (0.0, 0.5, 0.0))]},
+                            {"name": "Lower eyelids open", "name_en": "Lower eyelids open", "kind": 1,
+                             "offsets": [(1, (0.0, -0.5, 0.0))]},
+                            {"name": "Smile", "name_en": "Smile", "kind": 1, "offsets": [(2, (1.0, 0.0, 0.0))]}]}
+        logs = []
+        self.assertTrue(open_closed_eyelids(model, logs.append))
+        self.assertEqual([v["pos"] for v in model["vertices"]], [(0.0, 1.5, 0.0), (0.0, -1.5, 0.0), (5.0, 5.0, 5.0)])
+        self.assertEqual([mo["name"] for mo in model["morphs"]],
+                         ["Upper eyelids close", "Lower eyelids close", "Smile"])
+        self.assertEqual(model["morphs"][0]["offsets"], [(0, (0.0, -0.5, 0.0))])
+        self.assertEqual(eyelid_blink({mo["name"]: {} for mo in model["morphs"]}),
+                         ("Upper eyelids close", "Lower eyelids close"))
+        self.assertEqual(len(logs), 1)
+        self.assertFalse(open_closed_eyelids(model, logs.append))
+
+    def test_only_one_open_eyelid_morph_changes_nothing(self):
+        from vrmconv.expressions import open_closed_eyelids
+        model = {"vertices": [{"pos": (0.0, 1.0, 0.0)}],
+                 "morphs": [{"name": "Upper eyelids open", "name_en": "", "kind": 1,
+                             "offsets": [(0, (0.0, 0.5, 0.0))]}]}
+        self.assertFalse(open_closed_eyelids(model, lambda *a: None))
+        self.assertEqual(model["vertices"][0]["pos"], (0.0, 1.0, 0.0))
 
     def test_upset_is_sad_when_nothing_better(self):
         from vrmconv.expressions import Lookup, _en_part

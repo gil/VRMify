@@ -212,34 +212,55 @@ def _covers_any(deltas, a, b):
 
 
 _LID_WORDS = {"eyelid", "eyelids", "lid", "lids"}
-_LID_STATE = {"open", "close", "closed", "blink"}
+_LID_CLOSE = {"close", "closed", "blink"}
 
 
-def _lid_closes(deltas, which):
-    """上眼睑的顶点平均往下、下眼睑平均往上（偏移够明显）才是闭眼。
-    名字不可靠：有的模型把闭眼叫 "Upper eyelids open"。"""
-    sig = _significant(deltas)
-    if not sig:
-        return False
-    dys = [d[1] for d in sig.values()]
-    mean = sum(dys) / len(dys)
-    top = max(abs(y) for y in dys)
-    return abs(mean) >= 0.15 * top and (mean < 0) == (which == "upper")
+def _lid_slot(name):
+    """「Upper eyelids open」→ ("upper", "open")；只有上 / 下眼睑加 open / close / blink 的名字才算，
+    带左右、带别的词（raise top、lower bottom）的不算。"""
+    ws = set(_en_words(name))
+    pos = ws & {"upper", "lower"}
+    state = ws & (_LID_CLOSE | {"open"})
+    if len(pos) != 1 or not ws & _LID_WORDS or ws & _EN_SIDE or ws - _LID_WORDS - pos - state or len(state) > 1:
+        return None
+    return next(iter(pos)), next(iter(state), None)
 
 
 def eyelid_blink(deltas):
-    """名字里只有「上 / 下眼睑」（可加 open / close / blink）的两个表情，且动起来是闭眼 →
-    (上眼睑表情, 下眼睑表情)；找不全返回 None。带左右的不算。"""
+    """上 / 下眼睑各有一个 close / blink 表情 → (上眼睑表情, 下眼睑表情)；找不全返回 None。"""
     found = {}
-    for name, d in deltas.items():
-        ws = set(_en_words(name))
-        pos = ws & {"upper", "lower"}
-        if len(pos) != 1 or not ws & _LID_WORDS or ws & _EN_SIDE or ws - _LID_WORDS - _LID_STATE - pos:
-            continue
-        which = next(iter(pos))
-        if which not in found and _lid_closes(d, which):
-            found[which] = name
+    for name in deltas:
+        slot = _lid_slot(name)
+        if slot and slot[1] in _LID_CLOSE:
+            found.setdefault(slot[0], name)
     return (found["upper"], found["lower"]) if len(found) == 2 else None
+
+
+def open_closed_eyelids(model, log):
+    """有的模型（Rick and Morty 的 FBX）默认形状里眼睑是合上的，靠上 / 下眼睑的 open 表情睁开。
+    VRM 没有「默认就带着某个表情」，导出后眼睛一直闭着。这里把两个 open 表情并进基础形状，
+    原表情取反改名成 close，之后 eyelid_blink 就能拿它们当眨眼。
+    上、下眼睑的 open 表情都有才做。"""
+    morphs = model["morphs"]
+    opens = {}
+    for i, mo in enumerate(morphs):
+        slot = _lid_slot(mo["name"] or "")
+        if mo["kind"] == 1 and mo["offsets"] and slot and slot[1] == "open":
+            opens.setdefault(slot[0], i)
+    if len(opens) != 2:
+        return False
+    verts = model["vertices"]
+    label = " + ".join(morphs[i]["name"] for i in opens.values())
+    for i in opens.values():
+        mo = morphs[i]
+        for vi, d in mo["offsets"]:
+            x, y, z = verts[vi]["pos"]
+            verts[vi]["pos"] = (x + d[0], y + d[1], z + d[2])
+        mo["offsets"] = [(vi, (-d[0], -d[1], -d[2])) for vi, d in mo["offsets"]]
+        for key in ("name", "name_en"):
+            mo[key] = re.sub(r"(?i)open", "close", mo.get(key) or "")
+    log("表情：默认形状里眼睑是合上的，已把睁眼表情（%s）并入基础形状，它们改为反向（闭眼）" % label)
+    return True
 
 
 def combo_recipes(deltas, panel, lookup=None):

@@ -241,6 +241,9 @@ TEMPLATES = {
     "表情：未找到眼睛高光材质或关闭高光的表情，未补充 hideHighlight":
         "Expressions: no eye highlight material or highlight-off morph found, hideHighlight not added",
     "表情：补充 tongue（%s）": "Expressions: added tongue ({0})",
+    "表情：默认形状里眼睑是合上的，已把睁眼表情（%s）并入基础形状，它们改为反向（闭眼）":
+        "Expressions: the eyelids are closed in the default shape. Folded the opening morphs ({0}) into the "
+        "base shape; they now close the eyes",
     # ---- 材质 / 贴图
     "材质透明模式：不透明 %d · 裁剪（MASK）%d · 半透明（BLEND）%d":
         "Material transparency: {0} opaque · {1} cutout (MASK) · {2} semi-transparent (BLEND)",

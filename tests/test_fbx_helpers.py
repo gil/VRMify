@@ -39,6 +39,27 @@ class BoneNameTest(unittest.TestCase):
         for name, want in cases.items():
             self.assertEqual(_en_bone(name), want, name)
 
+    def test_region_prefixed_names(self):
+        cases = {
+            "leg left thigh": ("slot", "leftUpperLeg"), "leg right knee": ("slot", "rightLowerLeg"),
+            "leg left ankle": ("slot", "leftFoot"), "leg right toes": ("slot", "rightToes"),
+            "arm left shoulder 1": ("slot", "leftShoulder"), "arm right shoulder 2": ("slot", "rightUpperArm"),
+            "arm left elbow": ("slot", "leftLowerArm"), "arm right wrist": ("slot", "rightHand"),
+            "spine lower": ("slot", "spine"), "spine upper": ("slot", "chest"),
+            "Head neck lower": ("slot", "neck"), "Head Neck Upper": ("slot", "head"),
+            "arm left finger 1a": ("finger", ("left", "Thumb", 0)),
+            "arm left finger 1c": ("finger", ("left", "Thumb", 2)),
+            "arm right finger 2a": ("finger", ("right", "Index", 1)),
+            "arm left finger 5c": ("finger", ("left", "Little", 3)),
+        }
+        for name, want in cases.items():
+            self.assertEqual(_en_bone(name), want, name)
+
+    def test_region_prefixed_extras_are_not_humanoid(self):
+        for name in ("left breast", "Left butt cheek", "head lip lower left", "arm left finger 6a",
+                     "Head jaw", "Left pupil"):
+            self.assertIsNone(_en_bone(name), name)
+
     def test_not_humanoid(self):
         for name in ("J_L_HairTail_00", "skirt_L_01", "Pai_L", "J_Mune_root_00", "Root", "H02_L",
                      "Character1_RightHandPinky4", "J_L_Sode_A00"):

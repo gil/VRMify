@@ -79,6 +79,7 @@ ALT_TO_VRM = {
 #   HumanIK / Mixamo / Unity：Character1_LeftUpLeg、mixamorig:LeftForeArm、Chr_LeftHandIndex1
 #   VRoid：J_Bip_L_UpperArm、J_Bip_C_Chest      Blender：thigh.L、upper_arm.R
 #   3ds Max Biped：Bip001 L Thigh、Bip001 Spine1
+#   Rick and Morty 包：leg left thigh、arm left shoulder 2、arm left finger 1a、spine lower、Head Neck Upper
 _EN_PREFIX = re.compile(r"^(?:character\d*|chr|bip0*1|jbipc|jbip|j|def|org|mch|armature|skeleton|root|rig|"
                         r"cc_base|valvebiped_bip01|bip01)(?=[a-z])")
 _EN_SIDE = re.compile(r"(?:^|[^a-z])(l|r)(?:[^a-z]|$)|left|right")
@@ -87,6 +88,8 @@ _EN_BONES = {
     "spine": "spine", "spine0": "spine", "spine1": "chest", "spine01": "chest", "spine2": "upperChest",
     "spine02": "upperChest", "chest": "chest", "upperchest": "upperChest",
     "neck": "neck", "neck1": "neck", "head": "head",
+    "spinelower": "spine", "spineupper": "chest",
+    "headnecklower": "neck", "headneckupper": "head",
 }
 _EN_LIMBS = {
     "eye": "Eye", "shoulder": "Shoulder", "clavicle": "Shoulder",
@@ -97,9 +100,12 @@ _EN_LIMBS = {
     "leg": "LowerLeg", "lowerleg": "LowerLeg", "calf": "LowerLeg", "shin": "LowerLeg", "knee": "LowerLeg",
     "foot": "Foot", "ankle": "Foot",
     "toebase": "Toes", "toe": "Toes", "toes": "Toes", "toe0": "Toes",
+    "armshoulder1": "Shoulder", "armshoulder2": "UpperArm", "armelbow": "LowerArm", "armwrist": "Hand",
+    "legthigh": "UpperLeg", "legknee": "LowerLeg", "legankle": "Foot", "legtoes": "Toes",
 }
 _EN_FINGERS = {"thumb": "Thumb", "index": "Index", "middle": "Middle", "ring": "Ring",
                "pinky": "Little", "little": "Little"}
+_EN_NUMBERED_FINGERS = {"1": "Thumb", "2": "Index", "3": "Middle", "4": "Ring", "5": "Little"}
 
 
 def _en_bone(name, thumb_metacarpal=False):
@@ -134,6 +140,10 @@ def _en_bone(name, thumb_metacarpal=False):
         if f == "Thumb":
             d -= 1
         return ("finger", (side, f, d)) if 0 <= d <= 3 and not (f != "Thumb" and d == 0) else None
+    m = re.fullmatch(r"armfinger([1-5])([abc])", base)
+    if m:
+        f, joint = _EN_NUMBERED_FINGERS[m.group(1)], "abc".index(m.group(2))
+        return ("finger", (side, f, joint if f == "Thumb" else joint + 1))
     m = re.fullmatch(r"(thumb|index|middle|ring|pinky|little)(metacarpal|proximal|intermediate|distal)", base)
     if m:
         f, seg = _EN_FINGERS[m.group(1)], m.group(2)

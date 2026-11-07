@@ -44,7 +44,7 @@ _EN_VOWEL = {"a": "aa", "aa": "aa", "i": "ih", "ih": "ih", "u": "ou", "ou": "ou"
              "e": "ee", "ee": "ee", "o": "oh", "oh": "oh"}
 _EN_EMO = {"joy": "happy", "happy": "happy", "smile": "happy", "angry": "angry", "anger": "angry",
            "sorrow": "sad", "sad": "sad", "fun": "relaxed", "relaxed": "relaxed",
-           "surprised": "surprised", "surprise": "surprised", "neutral": "neutral"}
+           "surprised": "surprised", "surprise": "surprised", "neutral": "neutral", "calm": "relaxed"}
 _TO_0X = {"happy": "joy", "aa": "a", "ih": "i", "ou": "u", "ee": "e", "oh": "o", "sad": "sorrow",
           "relaxed": "fun", "blinkLeft": "blink_l", "blinkRight": "blink_r", "lookUp": "lookup",
           "lookDown": "lookdown", "lookLeft": "lookleft", "lookRight": "lookright"}
@@ -263,13 +263,13 @@ def open_closed_eyelids(model, log):
     return True
 
 
-def combo_recipes(deltas, panel, lookup=None):
+def combo_recipes(deltas, panel, lookup=None, min_parts=2):
     """→ {预设（1.0 名）: [(表情名, 权重, 部位 1 眉 / 2 目 / 3 口)]}（ARKit 左右一对时同一部位有两项）。
 
     deltas：表情名 → 顶点偏移（只算有顶点偏移的表情）；panel：表情名 → PMX 面板。
     每个部位按 COMBO 的候选顺序找（名字按 Lookup 规则匹配）。MMD 名的候选放在别的脸部面板
     （眉 / 目 / 口）时不算（比如眼睛面板的「喜び」不当眉毛）；「其他」面板不限制（有的模型眉毛放在那里）。
-    和已选的部位动同一批顶点（_covers）的候选跳过、换下一个。至少两个部位找到才组合。
+    和已选的部位动同一批顶点（_covers）的候选跳过、换下一个。至少 min_parts 个部位找到才组合。
     """
     lookup = lookup or Lookup(deltas)
     out = {}
@@ -290,7 +290,7 @@ def combo_recipes(deltas, panel, lookup=None):
                 if all(not set(names) & set(g[0]) and not _covers_any(deltas, names, g[0]) for g in got):
                     got.append((names, w, pn))
                     break
-        if len(got) >= 2:
+        if len(got) >= min_parts:
             out[p] = [(n, w, pn) for names, w, pn in got for n in names]
     return out
 
@@ -473,15 +473,21 @@ def _table_preset(name, is1, keys=()):
 
 
 def _preset_en(name, is1):
+    return _preset_en_ranked(name, is1)[0]
+
+
+def _preset_en_ranked(name, is1):
+    """英文名 → (预设, 优先级)。0 = 专门的名字（A、blink、ANGRY）；1 = 泛称（Mouth Open）或带序号的情绪（Sad 1），
+    同一个预设有 0 级的时候不用 1 级的。"""
     s = (name or "").strip().lower().replace("-", "_").replace(" ", "_")
     s = re.sub(r"^blendshape\d*\.", "", s)
-    p = None
+    p, rank = None, 0
     m = re.fullmatch(r"(?:.*[._])?(?:mth|mouth|v)[._]?(aa|ih|ou|ee|oh|a|i|u|e|o)", s) \
         or re.fullmatch(r"(aa|ih|ou|ee|oh|a|i|u|e|o)", s)
     if m:
         p = _EN_VOWEL[m.group(1)]
     elif re.search(r"mouth_?open$", s):
-        p = "aa"
+        p, rank = "aa", 1
     elif re.fullmatch(r"(?:.*[._])?look_?(up|down|left|right)", s):
         p = "look" + re.fullmatch(r"(?:.*[._])?look_?(up|down|left|right)", s).group(1).capitalize()
     elif re.search(r"(blink|eye_?close[d]?|eye_def_c)[._]?(l|left)$", s):
@@ -491,14 +497,17 @@ def _preset_en(name, is1):
     elif re.search(r"(?:^|[._])(blink|eye_?close[d]?|eye_def_c)$", s):
         p = "blink"
     else:
-        m = re.search(r"(?:^|[._])(?:all_|face_)?([a-z]+)$", s)
-        if m and m.group(1) in _EN_EMO and (s == m.group(1) or re.search(r"(?:^|_)(?:fcl_)?all_|^face_", s)):
-            p = _EN_EMO[m.group(1)]
+        numbered = re.sub(r"[._]?\d+$", "", s)
+        for cand, r in ((s, 0), (numbered, 1)):
+            m = re.search(r"(?:^|[._])(?:all_|face_)?([a-z]+)$", cand)
+            if m and m.group(1) in _EN_EMO and (cand == m.group(1) or re.search(r"(?:^|_)(?:fcl_)?all_|^face_", cand)):
+                p, rank = _EN_EMO[m.group(1)], r
+                break
     if p and not is1:
         p = _TO_0X.get(p, p)
         if p not in PRESETS_0:          # surprised 在 0.x 里不是预设
             p = None
-    return p
+    return p, rank
 
 
 def _flatten_morphs(morphs, model=None, extra_bone=None, weights=None):
@@ -644,7 +653,18 @@ def build_expressions(flat, prims, mats, mat_gidx, gb, xf, vmat, is1, sparse_mor
             delta_of.setdefault(mname, deltas)
     panel = {mo["name"]: mo.get("panel") for mo in mats.model["morphs"]}
     lookup = Lookup(delta_of)
-    recipes = combo_recipes(delta_of, panel, lookup) if combo else {}
+    recipes = combo_recipes(delta_of, panel, lookup, min_parts=1) if combo else {}
+    en_pick = {}                     # 英文名预设 → (优先级, 表情名)；专门的名字压过泛称
+    for n, *_ in flat:
+        if n in winks or _table_preset(n, is1, keys) or _WINK.search(n):
+            continue
+        p, rank = _preset_en_ranked(n, is1)
+        if p and p not in jp_presets and (p not in en_pick or rank < en_pick[p][0]):
+            en_pick[p] = (rank, n)
+    # 模型自带整张脸的 JOY 这类表情就直接用，不再拿眉 / 眼 / 嘴拼；只剩一个部位时也不拼（缺的预设再用）。
+    # angry 例外：自带的满值太重，仍用 COMBO 里降了权重的组合
+    own = {p for p, (rank, n) in en_pick.items() if not rank and _key(n) in _EN_EMO and p != "angry"}
+    recipes = {p: r for p, r in recipes.items() if p not in own and (len(r) > 1 or (p not in en_pick and (p if is1 else _TO_0X.get(p, p)) not in jp_presets))}
 
     def add_target(name, deltas):
         """一个 morph target → 序号。只写进它动得到的 primitive（pr["tmap"][序号] = accessor），
@@ -724,9 +744,8 @@ def build_expressions(flat, prims, mats, mat_gidx, gb, xf, vmat, is1, sparse_mor
 
         preset = winks.get(mname) or _table_preset(mname, is1, keys)
         if not preset and not _WINK.search(mname):
-            preset = _preset_en(mname, is1)
-            if preset in jp_presets:
-                preset = None
+            p_en = _preset_en(mname, is1)
+            preset = p_en if en_pick.get(p_en, (0, None))[1] == mname else None
         if is1:
             obj = {"morphTargetBinds": ([{"node": 0, "index": slot,
                                           "weight": 1.0}]

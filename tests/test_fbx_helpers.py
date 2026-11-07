@@ -20,7 +20,7 @@ for _p in (os.path.join(ROOT, "convert"), os.path.join(ROOT, "formats")):
 import fbx2pmx  # noqa: E402
 import unityasset  # noqa: E402
 import unitypackage_unpack  # noqa: E402
-from vrmconv.expressions import _preset_en  # noqa: E402
+from vrmconv.expressions import _preset_en, _preset_en_ranked  # noqa: E402
 from vrmconv.humanoid import _en_bone, _map_humanoid  # noqa: E402
 
 
@@ -112,6 +112,13 @@ class ExpressionNameTest(unittest.TestCase):
             self.assertEqual(_preset_en(name, True), want, name)
         self.assertEqual(_preset_en("Fcl_ALL_Joy", False), "joy")
         self.assertEqual(_preset_en("vrc.blink_left", False), "blink_l")
+
+    def test_numbered_emotions_and_generic_mouth_rank_lower(self):
+        self.assertEqual(_preset_en_ranked("Sad 1", True), ("sad", 1))
+        self.assertEqual(_preset_en_ranked("Calm 1", True), ("relaxed", 1))
+        self.assertEqual(_preset_en_ranked("Mouth Open", True), ("aa", 1))
+        self.assertEqual(_preset_en_ranked("JOY", True), ("happy", 0))
+        self.assertEqual(_preset_en_ranked("A", True), ("aa", 0))
 
     def test_lookup(self):
         from vrmconv.expressions import Lookup

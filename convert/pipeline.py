@@ -48,10 +48,10 @@ for _p in (_HERE, os.path.join(os.path.dirname(_HERE), "formats")):
 import archive  # noqa: E402
 import parallel  # noqa: E402
 
-KINDS = {".pmx": "pmx", ".vrm": "vrm", ".fbx": "fbx", ".unitypackage": "unitypackage",
+KINDS = {".pmx": "pmx", ".pmd": "pmd", ".vrm": "vrm", ".fbx": "fbx", ".unitypackage": "unitypackage",
          ".uemodel": "uemodel", ".psk": "psk", ".pskx": "psk", ".xps": "xps", ".zip": "zip"}
 ARCHIVES = {"zip", "7z", "rar", "tar"}
-CONVERTIBLE = {"pmx", "fbx", "unitypackage", "uemodel", "psk", "xps"} | ARCHIVES
+CONVERTIBLE = {"pmx", "pmd", "fbx", "unitypackage", "uemodel", "psk", "xps"} | ARCHIVES
 
 DEFAULTS = {
     "target": "vrm",
@@ -73,7 +73,7 @@ DEFAULTS = {
 
 
 def classify(path):
-    """→ "pmx" / "vrm" / "fbx" / "unitypackage" / "uemodel" / "psk" / "xps" /
+    """→ "pmx" / "pmd" / "vrm" / "fbx" / "unitypackage" / "uemodel" / "psk" / "xps" /
     "zip" / "7z" / "rar" / "tar"，不支持的为 None（分卷压缩包只认第一卷）。"""
     return KINDS.get(os.path.splitext(path)[1].lower()) or archive.kind(path)
 
@@ -331,6 +331,9 @@ def to_pmx(path, kind, out_dir, opts, log):
         psk2pmx.convert(path, out, scale_mode="auto", log=log, name=stem,
                         jp_bones=o["jp_bones"], make_ik=o["ik"], export_morphs=o["morphs"],
                         remove_alpha=o["alpha"], force_double_sided=opts["vrm"]["double_sided"])
+    elif kind == "pmd":
+        import pmd2pmx
+        pmd2pmx.convert(path, out, log=log, name=stem, force_double_sided=opts["vrm"]["double_sided"])
     elif kind == "xps":
         import xps2pmx
         o = opts["xps"]
@@ -583,7 +586,7 @@ def _convert_archive(path, kind, out_dir, opts, log, edits=None):
         log("解压出 %d 个文件，其中模型 %d 个：%s" % (n, len(todo), "、".join(
             os.path.relpath(p, tmp) for p in todo)), "info")
         if not todo:
-            raise RuntimeError("压缩包中没有可转换的模型（PMX / FBX / uemodel / psk / xps）")
+            raise RuntimeError("压缩包中没有可转换的模型（PMX / PMD / FBX / uemodel / psk / xps）")
         names = _unique_names(todo)
         # 只转 PMX 时几个模型的贴图都写进输出目录的同一个 textures 文件夹：一个一个转
         each = dict(opts, jobs=1) if opts["target"] == "pmx" else opts

@@ -2,7 +2,7 @@
 export const STRINGS = {
   zh_CN: {
     files: '文件', addFiles: '添加文件', addFolder: '添加文件夹', clear: '清空',
-    dropHint: '把 PMX / VRM / 压缩包（zip / 7z / rar）/ FBX / unitypackage / uemodel / psk / xps 拖到这里',
+    dropHint: '把 PMX / PMD / VRM / 压缩包（zip / 7z / rar）/ FBX / unitypackage / uemodel / psk / xps 拖到这里',
     dropHintShort: '拖入更多文件', uploading: '正在读入 {i} / {n}：{name}', uploaded: '已加入 {n} 个文件', uploadFailed: '有 {n} 个文件读入失败',
     browserMode: '浏览器模式：', getWebView2: '下载 WebView2', browserModeHint: '拖入和添加文件照常可用（文件会先复制一份）。详细信息：{log}',
     empty: '尚未添加文件',
@@ -92,7 +92,7 @@ export const STRINGS = {
   },
   en: {
     files: 'Files', addFiles: 'Add files', addFolder: 'Add folder', clear: 'Clear',
-    dropHint: 'Drop PMX / VRM / archives (zip / 7z / rar) / FBX / unitypackage / uemodel / psk / xps here',
+    dropHint: 'Drop PMX / PMD / VRM / archives (zip / 7z / rar) / FBX / unitypackage / uemodel / psk / xps here',
     dropHintShort: 'Drop more files', uploading: 'Reading {i} / {n}: {name}', uploaded: 'Added {n} file(s)', uploadFailed: '{n} file(s) could not be read',
     browserMode: 'Browser mode:', getWebView2: 'Get WebView2', browserModeHint: 'Dropping and adding files still work (the files are copied first). Details: {log}',
     empty: 'No files yet',

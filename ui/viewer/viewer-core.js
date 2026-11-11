@@ -233,6 +233,7 @@ export class Viewer {
     let physicsOk = true;
     try { await loadAmmo(); } catch (e) { physicsOk = false; console.warn(e); }
     const mesh = await new Promise((res, rej) => new MMDLoader().load(url, res, undefined, rej));
+    if (!mesh.geometry.morphAttributes.position?.length) delete mesh.geometry.morphAttributes.position;
     this.clear();
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
     this.scene.add(mesh);
